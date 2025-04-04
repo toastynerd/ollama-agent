@@ -7,6 +7,8 @@ from rich.console import Console
 from rich.prompt import Prompt, Confirm
 import sys
 import os
+import platform
+import shutil
 
 class LocalAgent:
     def __init__(self):
@@ -15,13 +17,14 @@ class LocalAgent:
         self.model = "llama2"  # default model, can be changed
         self.ensure_model()
         self.conversation_history = []
-        self.system_prompt = """You are a helpful AI assistant that can execute commands on the user's system.
+        self.shell_type = self.detect_shell()
+        self.system_prompt = f"""You are a helpful AI assistant that can execute commands on the user's system.
 When asked to show information or perform actions, you should:
 1. Use appropriate commands to gather the requested information
 2. Always wrap commands in ```bash or ```shell code blocks
 3. Explain what each command does before executing it
 4. Be helpful but maintain system security
-5. Use fish shell syntax when appropriate
+5. Use {self.shell_type} shell syntax when appropriate
 
 Example response format:
 To show your home directory, I'll use the `ls` command:
@@ -30,6 +33,18 @@ ls ~/
 ```
 
 This will list all files and directories in your home folder."""
+
+    def detect_shell(self):
+        """Detect the current shell type"""
+        shell = os.environ.get('SHELL', '')
+        if 'fish' in shell:
+            return 'fish'
+        elif 'zsh' in shell:
+            return 'zsh'
+        elif 'bash' in shell:
+            return 'bash'
+        else:
+            return 'sh'  # default to sh
 
     def ensure_model(self):
         try:
@@ -68,7 +83,8 @@ This will list all files and directories in your home folder."""
             self.console.print("[red]Error: Ollama is not running. Please start it using 'docker-compose up -d'[/red]")
             return
 
-        self.console.print("[green]Starting chat with Local Agent...[/green]")
+        self.console.print(f"[green]Starting chat with Local Agent...[/green]")
+        self.console.print(f"[yellow]Using {self.shell_type} shell[/yellow]")
         self.console.print("[yellow]Type 'exit' to end the chat, 'help' for commands[/yellow]")
 
         # Initialize conversation with system prompt
@@ -147,12 +163,23 @@ This will list all files and directories in your home folder."""
         self.console.print(f"\n[yellow]Command to execute:[/yellow] {command}")
         if Confirm.ask("Do you want to execute this command?"):
             try:
-                result = subprocess.run(
-                    command,
-                    shell=True,
-                    capture_output=True,
-                    text=True
-                )
+                # Use the appropriate shell based on the detected shell type
+                if self.shell_type == 'fish':
+                    # For fish shell, we need to use fish -c
+                    result = subprocess.run(
+                        ['fish', '-c', command],
+                        capture_output=True,
+                        text=True
+                    )
+                else:
+                    # For other shells, use the shell directly
+                    result = subprocess.run(
+                        command,
+                        shell=True,
+                        capture_output=True,
+                        text=True
+                    )
+                
                 output = []
                 if result.stdout:
                     self.console.print("[green]Output:[/green]")

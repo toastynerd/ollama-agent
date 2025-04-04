@@ -20,6 +20,15 @@ is_fedora() {
     [ -f "/etc/fedora-release" ]
 }
 
+# Function to detect shell type
+detect_shell() {
+    if [ -n "$fish_version" ]; then
+        echo "fish"
+    else
+        echo "bash"
+    fi
+}
+
 echo "Checking system dependencies..."
 
 # Check Python
@@ -104,11 +113,50 @@ if ! groups | grep -q docker; then
     echo "Please log out and back in for docker group changes to take effect."
 fi
 
+# Make local_agent.py executable
+echo "Making local_agent.py executable..."
+chmod +x local_agent.py
+
 # Create Python virtual environment and install requirements
 echo "Setting up Python virtual environment..."
 python -m venv venv
-source venv/bin/activate
+
+# Install Python dependencies
+if [ "$(detect_shell)" = "fish" ]; then
+    echo "Detected fish shell. Using fish-specific activation."
+    source venv/bin/activate.fish
+else
+    source venv/bin/activate
+fi
+
+# Upgrade pip first
+pip install --upgrade pip
+
+# Install Python dependencies
 pip install -r requirements.txt
 
+# Create activation script for fish shell
+cat > activate_agent.fish << 'EOF'
+#!/usr/bin/env fish
+source venv/bin/activate.fish
+set -x PATH $PWD $PATH
+EOF
+
+# Make the activation script executable
+chmod +x activate_agent.fish
+
+# Create a wrapper script for easy execution
+cat > local-agent << 'EOF'
+#!/usr/bin/env fish
+source activate_agent.fish
+./local_agent.py
+EOF
+
+# Make the wrapper script executable
+chmod +x local-agent
+
 echo "Setup complete! Please log out and back in if you were added to the docker group."
-echo "To start the agent, run: source venv/bin/activate && ./local_agent.py" 
+echo "To start the agent, you can either:"
+echo "1. Run: ./local-agent"
+echo "2. Or add this line to your ~/.config/fish/config.fish:"
+echo "   source $PWD/activate_agent.fish" 
