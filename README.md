@@ -2,42 +2,79 @@
 
 A command-line interface agent that can interact with Ollama and execute Linux commands with confirmation.
 
-## Prerequisites
+## System Requirements
 
-- Docker and Docker Compose
+- Linux (Supported distributions: Arch Linux, Ubuntu/Debian, Fedora)
 - Python 3.8 or higher
 - pip (Python package manager)
+- Docker and Docker Compose
+- systemd (for service management)
 
-## Setup
+## Quick Setup
 
-1. Install the required Python packages:
+The easiest way to get started is to run the setup script:
+
+```bash
+./setup.sh
+```
+
+This script will:
+1. Check for and install required system dependencies (Python, pip, Docker, Docker Compose)
+2. Start the Docker service if not running
+3. Add your user to the docker group if needed
+4. Create a Python virtual environment and install Python dependencies
+5. Guide you through any necessary post-installation steps
+
+## Manual Setup
+
+If you prefer to set things up manually:
+
+1. Install system dependencies:
+   - Python 3.8+
+   - pip
+   - Docker
+   - Docker Compose
+
+2. Start Docker and add your user to the docker group:
    ```bash
+   sudo systemctl start docker
+   sudo usermod -aG docker $USER
+   # Log out and back in for group changes to take effect
+   ```
+
+3. Install Python dependencies:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate
    pip install -r requirements.txt
    ```
 
-2. Start the Ollama container:
+4. Start Ollama:
    ```bash
    docker-compose up -d
    ```
 
-3. Make the Python script executable:
-   ```bash
-   chmod +x local_agent.py
-   ```
-
 ## Usage
 
-1. Start the agent:
+1. Activate the virtual environment:
+   ```bash
+   source venv/bin/activate
+   ```
+
+2. Start the agent:
    ```bash
    ./local_agent.py
    ```
 
-2. The agent will start a chat session where you can:
-   - Type your questions or requests
-   - The agent will process them using Ollama
-   - If the response contains a command, it will ask for confirmation before executing
-   - Type 'help' for available commands
-   - Type 'exit' to end the session
+3. The agent will:
+   - Check if the required Ollama model is available
+   - Pull the model if needed
+   - Start a chat session where you can:
+     - Type questions or commands
+     - Get AI responses
+     - Execute suggested commands (with confirmation)
+     - Type 'help' for available commands
+     - Type 'exit' to end the session
 
 ## Features
 
@@ -46,9 +83,11 @@ A command-line interface agent that can interact with Ollama and execute Linux c
 - Rich text formatting for better readability
 - Error handling and status checking
 - Dockerized Ollama instance
+- Automatic model management
 
 ## Notes
 
 - The default model is set to "llama2". You can change this in the `local_agent.py` file.
-- All commands are executed with user confirmation for safety.
-- The Ollama container runs on port 11434. 
+- All commands require user confirmation before execution.
+- The Ollama container runs on port 11434.
+- If you're added to the docker group, you'll need to log out and back in for the changes to take effect. 
