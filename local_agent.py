@@ -17,7 +17,7 @@ class LocalAgent:
         self.console = Console()
         self.ollama_url = "http://localhost:11434"
         # Using a smaller model for better performance
-        self.model = "llama3:8b"  # 8B parameter model
+        self.model = "llama3:latest"  # Updated to match available model
         self.ensure_model()
         self.conversation_history = []
         self.shell_type = self.detect_shell()
@@ -164,7 +164,8 @@ This will list all files and directories in your home folder."""
                     "stream": False,
                     "options": {
                         "num_gpu": 1,  # Use GPU if available
-                        "num_thread": 4  # Adjust based on your CPU
+                        "num_thread": 4,  # Adjust based on your CPU
+                        "model_size": "8b"  # Specify 8B parameter model
                     }
                 }
             )
