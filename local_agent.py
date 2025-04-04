@@ -172,15 +172,45 @@ This will list all files and directories in your home folder."""
         command = command.replace("`", "").strip()
         return command
 
+    def convert_to_fish_syntax(self, command):
+        """Convert bash commands to fish shell syntax"""
+        # Replace bash variable assignment
+        command = command.replace("$(command)", "(command)")
+        
+        # Replace bash for loops with fish for loops
+        if "for" in command and "do" in command and "done" in command:
+            # Extract the loop variable and range
+            import re
+            for_match = re.search(r'for\s+(\w+)\s+in\s+\((.*?)\);?\s*do', command)
+            if for_match:
+                var_name = for_match.group(1)
+                loop_range = for_match.group(2)
+                
+                # Extract the loop body
+                body_start = command.find("do") + 2
+                body_end = command.rfind("done")
+                if body_start > 1 and body_end > body_start:
+                    loop_body = command[body_start:body_end].strip()
+                    
+                    # Create fish for loop
+                    fish_loop = f"for {var_name} in {loop_range}\n{loop_body}\nend"
+                    return fish_loop
+        
+        return command
+
     def execute_command(self, command):
         self.console.print(f"\n[yellow]Command to execute:[/yellow] {command}")
         if Confirm.ask("Do you want to execute this command?"):
             try:
                 # Use the appropriate shell based on the detected shell type
                 if self.shell_type == 'fish':
+                    # For fish shell, convert bash syntax to fish syntax
+                    fish_command = self.convert_to_fish_syntax(command)
+                    self.console.print(f"[yellow]Converted to fish syntax:[/yellow] {fish_command}")
+                    
                     # For fish shell, we need to use fish -c
                     result = subprocess.run(
-                        ['fish', '-c', command],
+                        ['fish', '-c', fish_command],
                         capture_output=True,
                         text=True
                     )
