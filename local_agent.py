@@ -5,6 +5,8 @@ import json
 import subprocess
 from rich.console import Console
 from rich.prompt import Prompt, Confirm
+from rich.spinner import Spinner
+from rich.live import Live
 import sys
 import os
 import platform
@@ -91,32 +93,41 @@ This will list all files and directories in your home folder."""
         self.conversation_history.append({"role": "system", "content": self.system_prompt})
 
         while True:
-            user_input = Prompt.ask("\n[blue]You[/blue]")
-            
-            if user_input.lower() == 'exit':
-                break
-            elif user_input.lower() == 'help':
-                self.show_help()
-                continue
+            try:
+                user_input = Prompt.ask("\n[blue]You[/blue]")
+                
+                if user_input.lower() == 'exit':
+                    break
+                elif user_input.lower() == 'help':
+                    self.show_help()
+                    continue
 
-            # Get response from Ollama
-            response = self.get_ollama_response(user_input)
-            if response:
-                self.console.print(f"\n[green]Assistant:[/green] {response}")
-                self.conversation_history.append({"role": "assistant", "content": response})
-            
-            # Check if the response contains a command to execute
-            if response and ("```bash" in response or "```shell" in response):
-                command = self.extract_command(response)
-                if command:
-                    output = self.execute_command(command)
-                    if output:
-                        # Send command output back to Ollama for context
-                        feedback_prompt = f"I executed the command '{command}' and got this output:\n{output}\nPlease analyze this output and let me know if you need any clarification or if there's anything important I should know."
-                        feedback_response = self.get_ollama_response(feedback_prompt)
-                        if feedback_response:
-                            self.console.print(f"\n[green]Assistant:[/green] {feedback_response}")
-                            self.conversation_history.append({"role": "assistant", "content": feedback_response})
+                # Get response from Ollama with spinner
+                with Live(Spinner("dots", text="Thinking..."), refresh_per_second=10, transient=True) as live:
+                    response = self.get_ollama_response(user_input)
+                    if response:
+                        self.console.print(f"\n[green]Assistant:[/green] {response}")
+                        self.conversation_history.append({"role": "assistant", "content": response})
+                
+                # Check if the response contains a command to execute
+                if response and ("```bash" in response or "```shell" in response):
+                    command = self.extract_command(response)
+                    if command:
+                        output = self.execute_command(command)
+                        if output:
+                            # Send command output back to Ollama for context with spinner
+                            with Live(Spinner("dots", text="Analyzing output..."), refresh_per_second=10, transient=True) as live:
+                                feedback_prompt = f"I executed the command '{command}' and got this output:\n{output}\nPlease analyze this output and let me know if you need any clarification or if there's anything important I should know."
+                                feedback_response = self.get_ollama_response(feedback_prompt)
+                                if feedback_response:
+                                    self.console.print(f"\n[green]Assistant:[/green] {feedback_response}")
+                                    self.conversation_history.append({"role": "assistant", "content": feedback_response})
+            except KeyboardInterrupt:
+                self.console.print("\n[yellow]Chat session ended by user.[/yellow]")
+                break
+            except Exception as e:
+                self.console.print(f"[red]An error occurred: {str(e)}[/red]")
+                continue
 
     def get_ollama_response(self, prompt):
         try:
@@ -157,6 +168,8 @@ This will list all files and directories in your home folder."""
             return None
 
         command = response[start:end].strip()
+        # Remove any markdown formatting that might have been included
+        command = command.replace("`", "").strip()
         return command
 
     def execute_command(self, command):
