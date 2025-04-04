@@ -244,14 +244,15 @@ This will list all files and directories in your home folder."""
             self.console.print(f"  [cyan]1-{len(commands)}[/cyan] - Execute a specific command")
             self.console.print("  [cyan]a[/cyan] - Execute all commands")
             self.console.print("  [cyan]c[/cyan] - Cancel execution")
+            self.console.print("  [bold red]q[/bold red] - [bold red]QUIT: Don't run any commands[/bold red]")
             
             choice = Prompt.ask(
                 "\n[bold green]Your choice[/bold green]",
-                choices=[str(i) for i in range(1, len(commands) + 1)] + ['a', 'c'],
+                choices=[str(i) for i in range(1, len(commands) + 1)] + ['a', 'c', 'q'],
                 default='c'
             )
             
-            if choice == 'c':
+            if choice == 'c' or choice == 'q':
                 self.console.print("[yellow]Command execution cancelled[/yellow]")
                 return None
             elif choice == 'a':
