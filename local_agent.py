@@ -16,7 +16,7 @@ class LocalAgent:
     def __init__(self):
         self.console = Console()
         self.ollama_url = "http://localhost:11434"
-        self.model = "llama2"  # default model, can be changed
+        self.model = "llama3"  # Using Llama 3 model
         self.ensure_model()
         self.conversation_history = []
         self.shell_type = self.detect_shell()
