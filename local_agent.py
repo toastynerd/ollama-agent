@@ -130,25 +130,36 @@ This will list all files and directories in your home folder."""
                         self.console.print(f"\n[green]Assistant:[/green] {response}")
                         self.conversation_history.append({"role": "assistant", "content": response})
                 
-                # Check if the response contains a command to execute
-                if response and ("```bash" in response or "```shell" in response):
-                    command = self.extract_command(response)
-                    if command:
-                        output = self.execute_command(command)
-                        if output:
-                            # Send command output back to Ollama for context with spinner
-                            with Live(Spinner("dots", text="Analyzing output..."), refresh_per_second=10, transient=True) as live:
-                                feedback_prompt = f"I executed the command '{command}' and got this output:\n{output}\nPlease analyze this output and let me know if you need any clarification or if there's anything important I should know."
-                                feedback_response = self.get_ollama_response(feedback_prompt)
-                                if feedback_response:
-                                    self.console.print(f"\n[green]Assistant:[/green] {feedback_response}")
-                                    self.conversation_history.append({"role": "assistant", "content": feedback_response})
+                # Process response and handle any commands
+                self.process_response(response)
+                
             except KeyboardInterrupt:
                 self.console.print("\n[yellow]Chat session ended by user.[/yellow]")
                 break
             except Exception as e:
                 self.console.print(f"[red]An error occurred: {str(e)}[/red]")
                 continue
+
+    def process_response(self, response):
+        """Process a response and handle any commands within it"""
+        if not response:
+            return
+            
+        # Check if the response contains a command to execute
+        if "```bash" in response or "```shell" in response:
+            command = self.extract_command(response)
+            if command:
+                output = self.execute_command(command)
+                if output:
+                    # Send command output back to Ollama for context with spinner
+                    with Live(Spinner("dots", text="Analyzing output..."), refresh_per_second=10, transient=True) as live:
+                        feedback_prompt = f"I executed the command '{command}' and got this output:\n{output}\nPlease analyze this output and let me know if you need any clarification or if there's anything important I should know."
+                        feedback_response = self.get_ollama_response(feedback_prompt)
+                        if feedback_response:
+                            self.console.print(f"\n[green]Assistant:[/green] {feedback_response}")
+                            self.conversation_history.append({"role": "assistant", "content": feedback_response})
+                            # Recursively process the feedback response for any follow-up commands
+                            self.process_response(feedback_response)
 
     def get_ollama_response(self, prompt):
         try:
