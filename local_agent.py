@@ -16,7 +16,8 @@ class LocalAgent:
     def __init__(self):
         self.console = Console()
         self.ollama_url = "http://localhost:11434"
-        self.model = "llama3"  # Using Llama 3 model
+        # Using a smaller model for better performance
+        self.model = "llama3:8b"  # 8B parameter model
         self.ensure_model()
         self.conversation_history = []
         self.shell_type = self.detect_shell()
@@ -62,16 +63,35 @@ This will list all files and directories in your home folder."""
 
     def pull_model(self):
         try:
+            # Pull model with GPU configuration
             response = requests.post(
                 f"{self.ollama_url}/api/pull",
-                json={"name": self.model}
+                json={
+                    "name": self.model,
+                    "insecure": True  # Allow pulling from insecure sources if needed
+                }
             )
             if response.status_code == 200:
                 self.console.print(f"[green]Successfully pulled model {self.model}[/green]")
+                # Verify GPU usage
+                self.check_gpu_usage()
             else:
                 self.console.print(f"[red]Error pulling model: {response.status_code}[/red]")
         except Exception as e:
             self.console.print(f"[red]Error pulling model: {str(e)}[/red]")
+
+    def check_gpu_usage(self):
+        """Check if GPU is being used by Ollama"""
+        try:
+            response = requests.get(f"{self.ollama_url}/api/show", params={"name": self.model})
+            if response.status_code == 200:
+                model_info = response.json()
+                if model_info.get("gpu_layers", 0) > 0:
+                    self.console.print("[green]GPU acceleration is enabled[/green]")
+                else:
+                    self.console.print("[yellow]GPU acceleration is not enabled. Make sure NVIDIA drivers and nvidia-container-toolkit are installed.[/yellow]")
+        except Exception as e:
+            self.console.print(f"[red]Error checking GPU status: {str(e)}[/red]")
 
     def check_ollama_status(self):
         try:
@@ -87,6 +107,7 @@ This will list all files and directories in your home folder."""
 
         self.console.print(f"[green]Starting chat with Local Agent...[/green]")
         self.console.print(f"[yellow]Using {self.shell_type} shell[/yellow]")
+        self.console.print(f"[yellow]Model: {self.model}[/yellow]")
         self.console.print("[yellow]Type 'exit' to end the chat, 'help' for commands[/yellow]")
 
         # Initialize conversation with system prompt
@@ -140,7 +161,11 @@ This will list all files and directories in your home folder."""
                 json={
                     "model": self.model,
                     "prompt": full_prompt,
-                    "stream": False
+                    "stream": False,
+                    "options": {
+                        "num_gpu": 1,  # Use GPU if available
+                        "num_thread": 4  # Adjust based on your CPU
+                    }
                 }
             )
             if response.status_code == 200:
