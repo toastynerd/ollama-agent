@@ -239,8 +239,14 @@ This will list all files and directories in your home folder."""
             for i, cmd in enumerate(commands, 1):
                 self.console.print(f"[cyan]{i}.[/cyan] {cmd}")
             
+            self.console.print("\n[bold green]Select command to execute:[/bold green]")
+            self.console.print("[cyan]Options:[/cyan]")
+            self.console.print(f"  [cyan]1-{len(commands)}[/cyan] - Execute a specific command")
+            self.console.print("  [cyan]a[/cyan] - Execute all commands")
+            self.console.print("  [cyan]c[/cyan] - Cancel execution")
+            
             choice = Prompt.ask(
-                "\n[bold green]Select command to execute[/bold green]",
+                "\n[bold green]Your choice[/bold green]",
                 choices=[str(i) for i in range(1, len(commands) + 1)] + ['a', 'c'],
                 default='c'
             )
@@ -253,18 +259,18 @@ This will list all files and directories in your home folder."""
                 all_output = []
                 for cmd in commands:
                     self.console.print(f"\n[bold blue]Executing:[/bold blue] {cmd}")
-                    output = self._run_single_command(cmd)
+                    output = self._run_single_command(cmd, default_yes=True)
                     if output:
                         all_output.append(output)
                 return "\n".join(all_output) if all_output else None
             else:
                 command = commands[int(choice) - 1]
         
-        return self._run_single_command(command)
+        return self._run_single_command(command, default_yes=True)
 
-    def _run_single_command(self, command):
+    def _run_single_command(self, command, default_yes=False):
         self.console.print(f"\n[bold blue]Command to execute:[/bold blue] {command}")
-        if Confirm.ask("[bold green]Execute this command?[/bold green]"):
+        if Confirm.ask("[bold green]Execute this command?[/bold green]", default=default_yes):
             try:
                 # Use the appropriate shell based on the detected shell type
                 if self.shell_type == 'fish':
