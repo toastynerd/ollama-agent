@@ -181,22 +181,28 @@ This will list all files and directories in your home folder."""
             return ""
 
     def extract_command(self, response):
-        # Extract command from code blocks
-        if "```bash" in response:
-            start = response.find("```bash") + 7
-        elif "```shell" in response:
-            start = response.find("```shell") + 8
-        else:
+        # Extract all commands from code blocks
+        commands = []
+        
+        # Find all code blocks
+        import re
+        code_blocks = re.findall(r'```(?:bash|shell)\n(.*?)\n```', response, re.DOTALL)
+        
+        for block in code_blocks:
+            # Split by newlines and clean up each command
+            block_commands = [cmd.strip() for cmd in block.split('\n') if cmd.strip()]
+            commands.extend(block_commands)
+        
+        # If no commands found, return None
+        if not commands:
             return None
-
-        end = response.find("```", start)
-        if end == -1:
-            return None
-
-        command = response[start:end].strip()
-        # Remove any markdown formatting that might have been included
-        command = command.replace("`", "").strip()
-        return command
+            
+        # If only one command, return it directly
+        if len(commands) == 1:
+            return commands[0]
+            
+        # If multiple commands, join them with newlines
+        return '\n'.join(commands)
 
     def convert_to_fish_syntax(self, command):
         """Convert bash commands to fish shell syntax"""
