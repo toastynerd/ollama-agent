@@ -243,8 +243,8 @@ This will list all files and directories in your home folder."""
             self.console.print("[cyan]Options:[/cyan]")
             self.console.print(f"  [cyan]1-{len(commands)}[/cyan] - Execute a specific command")
             self.console.print("  [cyan]a[/cyan] - Execute all commands")
-            self.console.print("  [cyan]c[/cyan] - Cancel execution")
-            self.console.print("  [bold red]q[/bold red] - [bold red]QUIT: Don't run any commands[/bold red]")
+            self.console.print("  [cyan]c[/cyan] - Cancel and return to chat")
+            self.console.print("  [bold red]q[/bold red] - [bold red]QUIT: Exit the program[/bold red]")
             
             choice = Prompt.ask(
                 "\n[bold green]Your choice[/bold green]",
@@ -252,9 +252,12 @@ This will list all files and directories in your home folder."""
                 default='c'
             )
             
-            if choice == 'c' or choice == 'q':
-                self.console.print("[yellow]Command execution cancelled[/yellow]")
+            if choice == 'c':
+                self.console.print("[yellow]Command execution cancelled. Returning to chat.[/yellow]")
                 return None
+            elif choice == 'q':
+                self.console.print("[bold red]Exiting the program. Goodbye![/bold red]")
+                sys.exit(0)
             elif choice == 'a':
                 # Execute all commands in sequence
                 all_output = []
