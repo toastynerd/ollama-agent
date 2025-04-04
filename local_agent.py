@@ -310,6 +310,24 @@ This will list all files and directories in your home folder."""
 
 def main():
     agent = LocalAgent()
+    
+    # Add test mode
+    if len(sys.argv) > 1 and sys.argv[1] == "--test":
+        print("Running in test mode...")
+        # Simulate multiple commands for testing
+        test_commands = """
+        ls -la
+        pwd
+        uname -a
+        """
+        output = agent.execute_command(test_commands)
+        sys.exit(0)
+    
+    print("Starting chat with Local Agent...")
+    print("Using", agent.shell_type, "shell")
+    print("Model:", agent.model)
+    print('Type \'exit\' to end the chat, \'help\' for commands\n')
+    
     agent.start_chat()
 
 if __name__ == "__main__":
