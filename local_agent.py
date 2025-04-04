@@ -14,6 +14,22 @@ class LocalAgent:
         self.ollama_url = "http://localhost:11434"
         self.model = "llama2"  # default model, can be changed
         self.ensure_model()
+        self.conversation_history = []
+        self.system_prompt = """You are a helpful AI assistant that can execute commands on the user's system.
+When asked to show information or perform actions, you should:
+1. Use appropriate commands to gather the requested information
+2. Always wrap commands in ```bash or ```shell code blocks
+3. Explain what each command does before executing it
+4. Be helpful but maintain system security
+5. Use fish shell syntax when appropriate
+
+Example response format:
+To show your home directory, I'll use the `ls` command:
+```bash
+ls ~/
+```
+
+This will list all files and directories in your home folder."""
 
     def ensure_model(self):
         try:
@@ -55,6 +71,9 @@ class LocalAgent:
         self.console.print("[green]Starting chat with Local Agent...[/green]")
         self.console.print("[yellow]Type 'exit' to end the chat, 'help' for commands[/yellow]")
 
+        # Initialize conversation with system prompt
+        self.conversation_history.append({"role": "system", "content": self.system_prompt})
+
         while True:
             user_input = Prompt.ask("\n[blue]You[/blue]")
             
@@ -68,25 +87,39 @@ class LocalAgent:
             response = self.get_ollama_response(user_input)
             if response:
                 self.console.print(f"\n[green]Assistant:[/green] {response}")
+                self.conversation_history.append({"role": "assistant", "content": response})
             
             # Check if the response contains a command to execute
             if response and ("```bash" in response or "```shell" in response):
                 command = self.extract_command(response)
                 if command:
-                    self.execute_command(command)
+                    output = self.execute_command(command)
+                    if output:
+                        # Send command output back to Ollama for context
+                        feedback_prompt = f"I executed the command '{command}' and got this output:\n{output}\nPlease analyze this output and let me know if you need any clarification or if there's anything important I should know."
+                        feedback_response = self.get_ollama_response(feedback_prompt)
+                        if feedback_response:
+                            self.console.print(f"\n[green]Assistant:[/green] {feedback_response}")
+                            self.conversation_history.append({"role": "assistant", "content": feedback_response})
 
     def get_ollama_response(self, prompt):
         try:
+            # Include conversation history in the context
+            context = "\n".join([f"{msg['role']}: {msg['content']}" for msg in self.conversation_history[-5:]])  # Last 5 messages for context
+            full_prompt = f"{context}\n\nUser: {prompt}\nAssistant:"
+            
             response = requests.post(
                 f"{self.ollama_url}/api/generate",
                 json={
                     "model": self.model,
-                    "prompt": prompt,
+                    "prompt": full_prompt,
                     "stream": False
                 }
             )
             if response.status_code == 200:
-                return response.json().get("response", "")
+                response_text = response.json().get("response", "")
+                self.conversation_history.append({"role": "user", "content": prompt})
+                return response_text
             else:
                 self.console.print(f"[red]Error: Ollama returned status code {response.status_code}[/red]")
                 return ""
@@ -120,16 +153,23 @@ class LocalAgent:
                     capture_output=True,
                     text=True
                 )
+                output = []
                 if result.stdout:
                     self.console.print("[green]Output:[/green]")
                     self.console.print(result.stdout)
+                    output.append(result.stdout)
                 if result.stderr:
                     self.console.print("[red]Error:[/red]")
                     self.console.print(result.stderr)
+                    output.append(f"Error: {result.stderr}")
+                return "\n".join(output) if output else None
             except Exception as e:
-                self.console.print(f"[red]Error executing command: {str(e)}[/red]")
+                error_msg = f"[red]Error executing command: {str(e)}[/red]"
+                self.console.print(error_msg)
+                return error_msg
         else:
             self.console.print("[yellow]Command execution cancelled[/yellow]")
+            return None
 
     def show_help(self):
         help_text = """
