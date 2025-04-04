@@ -225,8 +225,40 @@ This will list all files and directories in your home folder."""
         return command
 
     def execute_command(self, command):
-        self.console.print(f"\n[yellow]Command to execute:[/yellow] {command}")
-        if Confirm.ask("Do you want to execute this command?"):
+        # Split multiple commands if they exist
+        commands = [cmd.strip() for cmd in command.split('\n') if cmd.strip()]
+        
+        if len(commands) > 1:
+            self.console.print("\n[bold yellow]Multiple commands detected:[/bold yellow]")
+            for i, cmd in enumerate(commands, 1):
+                self.console.print(f"[cyan]{i}.[/cyan] {cmd}")
+            
+            choice = Prompt.ask(
+                "\n[bold green]Select command to execute[/bold green]",
+                choices=[str(i) for i in range(1, len(commands) + 1)] + ['a', 'c'],
+                default='c'
+            )
+            
+            if choice == 'c':
+                self.console.print("[yellow]Command execution cancelled[/yellow]")
+                return None
+            elif choice == 'a':
+                # Execute all commands in sequence
+                all_output = []
+                for cmd in commands:
+                    self.console.print(f"\n[bold blue]Executing:[/bold blue] {cmd}")
+                    output = self._run_single_command(cmd)
+                    if output:
+                        all_output.append(output)
+                return "\n".join(all_output) if all_output else None
+            else:
+                command = commands[int(choice) - 1]
+        
+        return self._run_single_command(command)
+
+    def _run_single_command(self, command):
+        self.console.print(f"\n[bold blue]Command to execute:[/bold blue] {command}")
+        if Confirm.ask("[bold green]Execute this command?[/bold green]"):
             try:
                 # Use the appropriate shell based on the detected shell type
                 if self.shell_type == 'fish':
@@ -251,16 +283,16 @@ This will list all files and directories in your home folder."""
                 
                 output = []
                 if result.stdout:
-                    self.console.print("[green]Output:[/green]")
+                    self.console.print("[bold green]Output:[/bold green]")
                     self.console.print(result.stdout)
                     output.append(result.stdout)
                 if result.stderr:
-                    self.console.print("[red]Error:[/red]")
+                    self.console.print("[bold red]Error:[/bold red]")
                     self.console.print(result.stderr)
                     output.append(f"Error: {result.stderr}")
                 return "\n".join(output) if output else None
             except Exception as e:
-                error_msg = f"[red]Error executing command: {str(e)}[/red]"
+                error_msg = f"[bold red]Error executing command: {str(e)}[/bold red]"
                 self.console.print(error_msg)
                 return error_msg
         else:
