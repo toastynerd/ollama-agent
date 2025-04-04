@@ -201,8 +201,19 @@ This will list all files and directories in your home folder."""
         
         for block in code_blocks:
             # Split by newlines and clean up each command
-            block_commands = [cmd.strip() for cmd in block.split('\n') if cmd.strip()]
+            block_commands = [
+                cmd.strip() for cmd in block.split('\n') 
+                if cmd.strip() and not cmd.strip().startswith('#')  # Skip empty lines and comments
+            ]
             commands.extend(block_commands)
+        
+        # Also look for inline code blocks with backticks
+        inline_commands = re.findall(r'`([^`]+)`', response)
+        commands.extend([cmd.strip() for cmd in inline_commands if cmd.strip() and not cmd.strip().startswith('#')])
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        commands = [cmd for cmd in commands if not (cmd in seen or seen.add(cmd))]
         
         # If no commands found, return None
         if not commands:
