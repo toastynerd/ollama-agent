@@ -198,37 +198,59 @@ This will list all files and directories in your home folder."""
             return None
 
     def extract_command(self, response: str) -> Optional[str]:
-        """Extract a command from the response."""
+        """Extract commands from the response."""
         # First check for code blocks
         if "```bash" in response or "```shell" in response:
-            # Find the start of the code block
-            start = response.find("```bash") if "```bash" in response else response.find("```shell")
-            if start != -1:
+            # Find all code blocks
+            code_blocks = []
+            current_pos = 0
+            while True:
+                # Find the start of a code block
+                start = response.find("```bash", current_pos) if "```bash" in response[current_pos:] else response.find("```shell", current_pos)
+                if start == -1:
+                    break
+                
                 # Skip the ```bash or ```shell line
                 start = response.find('\n', start) + 1
                 # Find the end of the code block
                 end = response.find("```", start)
-                if end != -1:
-                    # Extract the command from the code block
-                    command_block = response[start:end].strip()
-                    # Get the first non-empty line that's not a comment
-                    for line in command_block.split('\n'):
-                        line = line.strip()
-                        if line and not line.strip().startswith('#'):
-                            # Remove prompt characters
-                            return line.lstrip('$> ')
+                if end == -1:
+                    break
+                
+                # Extract the commands from the code block
+                command_block = response[start:end].strip()
+                # Get all non-empty lines that aren't comments
+                commands = []
+                for line in command_block.split('\n'):
+                    line = line.strip()
+                    if line and not line.strip().startswith('#'):
+                        # Remove prompt characters
+                        commands.append(line.lstrip('$> '))
+                
+                if commands:
+                    code_blocks.extend(commands)
+                
+                current_pos = end + 3
+            
+            if code_blocks:
+                # If we found multiple commands, join them with newlines
+                return '\n'.join(code_blocks)
         
         # If no code block found, check for inline code blocks with backticks
         inline_matches = re.findall(r'`([^`]+)`', response)
         if inline_matches:
-            # Return the first command-like match
+            # Return all command-like matches
+            commands = []
             for match in inline_matches:
                 match = match.strip()
                 if any(match.startswith(cmd) for cmd in ['uname', 'ls', 'cd', 'sudo', 'apt', 'git', 'docker', 'python', 'pip']):
-                    return match
+                    commands.append(match)
+            if commands:
+                return '\n'.join(commands)
         
         # If no inline code found, check for direct commands
         lines = response.split('\n')
+        commands = []
         for line in lines:
             # Skip empty lines and comments
             if not line.strip() or line.strip().startswith('#'):
@@ -241,7 +263,10 @@ This will list all files and directories in your home folder."""
             # Check if the line starts with a command pattern
             if any(line.strip().startswith(pattern) for pattern in ['$', '>', 'sudo', 'docker', 'git', 'npm', 'python', 'pip', 'apt', 'yum', 'brew']):
                 # Remove prompt characters
-                return line.strip().lstrip('$> ')
+                commands.append(line.strip().lstrip('$> '))
+        
+        if commands:
+            return '\n'.join(commands)
                 
         return None
 

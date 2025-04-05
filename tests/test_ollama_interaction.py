@@ -113,4 +113,4 @@ def test_extract_command_with_multiple_commands():
     response = "Here are some commands:\n```bash\nls -la\n```\n```bash\necho 'test'\n```"
     
     command = agent.extract_command(response)
-    assert command == "ls -la"  # Should return the first command found 
+    assert command == "ls -la\necho 'test'"  # Should return all commands found 

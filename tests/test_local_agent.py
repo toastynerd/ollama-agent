@@ -52,8 +52,8 @@ def test_extract_command_multiple_commands(agent):
     ```
     """
     command = agent.extract_command(response)
-    # Should return the first command only
-    assert command == "uname -a"
+    # Should return all commands
+    assert command == "uname -a\nlscpu\nfree -h"
 
 def test_extract_command_no_commands(agent):
     """Test extracting commands when none are present."""
@@ -77,7 +77,7 @@ def test_extract_command_with_explanatory_text(agent):
     ```
     """
     command = agent.extract_command(response)
-    assert command == "uname -a"
+    assert command == "uname -a\nlscpu"
 
 def test_extract_command_with_inline_code(agent):
     """Test extracting commands from inline code blocks."""
@@ -86,7 +86,7 @@ def test_extract_command_with_inline_code(agent):
     Or try `lscpu` for CPU details.
     """
     command = agent.extract_command(response)
-    assert command == "uname -a"
+    assert command == "uname -a\nlscpu"
 
 def test_extract_command_with_comments(agent):
     """Test extracting commands when there are comments in the code blocks."""
@@ -128,4 +128,4 @@ def test_extract_command_with_pipes(agent):
     ```
     """
     command = agent.extract_command(response)
-    assert command == "ps aux | grep python" 
+    assert command == "ps aux | grep python"
