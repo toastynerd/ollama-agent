@@ -11,6 +11,8 @@ import sys
 import os
 import platform
 import shutil
+from typing import Optional
+import re
 
 class LocalAgent:
     def __init__(self):
@@ -75,10 +77,13 @@ This will list all files and directories in your home folder."""
                 self.console.print(f"[green]Successfully pulled model {self.model}[/green]")
                 # Verify GPU usage
                 self.check_gpu_usage()
+                return True
             else:
                 self.console.print(f"[red]Error pulling model: {response.status_code}[/red]")
+                return False
         except Exception as e:
             self.console.print(f"[red]Error pulling model: {str(e)}[/red]")
+            return False
 
     def check_gpu_usage(self):
         """Check if GPU is being used by Ollama"""
@@ -94,6 +99,7 @@ This will list all files and directories in your home folder."""
             self.console.print(f"[red]Error checking GPU status: {str(e)}[/red]")
 
     def check_ollama_status(self):
+        """Check if Ollama is running"""
         try:
             response = requests.get(f"{self.ollama_url}/api/tags")
             return response.status_code == 200
@@ -186,45 +192,58 @@ This will list all files and directories in your home folder."""
                 return response_text
             else:
                 self.console.print(f"[red]Error: Ollama returned status code {response.status_code}[/red]")
-                return ""
+                return None
         except Exception as e:
             self.console.print(f"[red]Error getting response from Ollama: {str(e)}[/red]")
-            return ""
-
-    def extract_command(self, response):
-        # Extract all commands from code blocks
-        commands = []
-        
-        # Find all code blocks
-        import re
-        code_blocks = re.findall(r'```(?:bash|shell)\n(.*?)\n```', response, re.DOTALL)
-        
-        for block in code_blocks:
-            # Split by newlines and clean up each command
-            block_commands = [
-                cmd.strip() for cmd in block.split('\n') 
-                if cmd.strip() and not cmd.strip().startswith('#')  # Skip empty lines and comments
-            ]
-            commands.extend(block_commands)
-        
-        # Also look for inline code blocks with backticks
-        inline_commands = re.findall(r'`([^`]+)`', response)
-        commands.extend([cmd.strip() for cmd in inline_commands if cmd.strip() and not cmd.strip().startswith('#')])
-        
-        # Remove duplicates while preserving order
-        seen = set()
-        commands = [cmd for cmd in commands if not (cmd in seen or seen.add(cmd))]
-        
-        # If no commands found, return None
-        if not commands:
             return None
-            
-        # If only one command, return it directly
-        if len(commands) == 1:
-            return commands[0]
-            
-        # If multiple commands, join them with newlines
-        return '\n'.join(commands)
+
+    def extract_command(self, response: str) -> Optional[str]:
+        """Extract a command from the response."""
+        # First check for code blocks
+        if "```bash" in response or "```shell" in response:
+            # Find the start of the code block
+            start = response.find("```bash") if "```bash" in response else response.find("```shell")
+            if start != -1:
+                # Skip the ```bash or ```shell line
+                start = response.find('\n', start) + 1
+                # Find the end of the code block
+                end = response.find("```", start)
+                if end != -1:
+                    # Extract the command from the code block
+                    command_block = response[start:end].strip()
+                    # Get the first non-empty line that's not a comment
+                    for line in command_block.split('\n'):
+                        line = line.strip()
+                        if line and not line.strip().startswith('#'):
+                            # Remove prompt characters
+                            return line.lstrip('$> ')
+        
+        # If no code block found, check for inline code blocks with backticks
+        inline_matches = re.findall(r'`([^`]+)`', response)
+        if inline_matches:
+            # Return the first command-like match
+            for match in inline_matches:
+                match = match.strip()
+                if any(match.startswith(cmd) for cmd in ['uname', 'ls', 'cd', 'sudo', 'apt', 'git', 'docker', 'python', 'pip']):
+                    return match
+        
+        # If no inline code found, check for direct commands
+        lines = response.split('\n')
+        for line in lines:
+            # Skip empty lines and comments
+            if not line.strip() or line.strip().startswith('#'):
+                continue
+                
+            # Skip explanatory text
+            if line.strip().startswith('To ') or line.strip().startswith('This '):
+                continue
+                
+            # Check if the line starts with a command pattern
+            if any(line.strip().startswith(pattern) for pattern in ['$', '>', 'sudo', 'docker', 'git', 'npm', 'python', 'pip', 'apt', 'yum', 'brew']):
+                # Remove prompt characters
+                return line.strip().lstrip('$> ')
+                
+        return None
 
     def convert_to_fish_syntax(self, command):
         """Convert bash commands to fish shell syntax"""
@@ -235,20 +254,50 @@ This will list all files and directories in your home folder."""
         if "for" in command and "do" in command and "done" in command:
             # Extract the loop variable and range
             import re
-            for_match = re.search(r'for\s+(\w+)\s+in\s+\((.*?)\);?\s*do', command)
-            if for_match:
-                var_name = for_match.group(1)
-                loop_range = for_match.group(2)
+            
+            # Handle nested loops first
+            nested_match = re.search(r'for\s+(\w+)\s+in\s+\{(\d+)\.\.(\d+)\};\s*do\s+for\s+(\w+)\s+in\s+\{(\d+)\.\.(\d+)\};\s*do\s+(.*?)\s*done;\s*done', command)
+            if nested_match:
+                var1 = nested_match.group(1)
+                start1 = nested_match.group(2)
+                end1 = nested_match.group(3)
+                var2 = nested_match.group(4)
+                start2 = nested_match.group(5)
+                end2 = nested_match.group(6)
+                loop_body = nested_match.group(7).strip().rstrip(';')
                 
-                # Extract the loop body
-                body_start = command.find("do") + 2
-                body_end = command.rfind("done")
-                if body_start > 1 and body_end > body_start:
-                    loop_body = command[body_start:body_end].strip()
-                    
-                    # Create fish for loop
-                    fish_loop = f"for {var_name} in {loop_range}\n{loop_body}\nend"
-                    return fish_loop
+                # Create nested fish for loops
+                return f"for {var1} in (seq {start1} {end1})\nfor {var2} in (seq {start2} {end2})\n{loop_body}\nend\nend"
+            
+            # Handle {x..y} range syntax
+            range_match = re.search(r'for\s+(\w+)\s+in\s+\{(\d+)\.\.(\d+)\};\s*do\s+(.*?)\s*done', command)
+            if range_match:
+                var_name = range_match.group(1)
+                start = range_match.group(2)
+                end = range_match.group(3)
+                loop_body = range_match.group(4).strip()
+                
+                # Split multiple commands in the loop body and remove empty lines
+                commands = [cmd.strip().rstrip(';') for cmd in loop_body.split(';') if cmd.strip()]
+                fish_body = '\n'.join(commands)
+                
+                # Create fish for loop
+                return f"for {var_name} in (seq {start} {end})\n{fish_body}\nend"
+            
+            # Handle $(seq x y) syntax
+            seq_match = re.search(r'for\s+(\w+)\s+in\s+\$\(seq\s+(\d+)\s+(\d+)\);\s*do\s+(.*?)\s*done', command)
+            if seq_match:
+                var_name = seq_match.group(1)
+                start = seq_match.group(2)
+                end = seq_match.group(3)
+                loop_body = seq_match.group(4).strip()
+                
+                # Split multiple commands in the loop body and remove empty lines
+                commands = [cmd.strip().rstrip(';') for cmd in loop_body.split(';') if cmd.strip()]
+                fish_body = '\n'.join(commands)
+                
+                # Create fish for loop
+                return f"for {var_name} in (seq {start} {end})\n{fish_body}\nend"
         
         return command
 
@@ -351,7 +400,7 @@ def main():
     
     # Add test mode
     if len(sys.argv) > 1 and sys.argv[1] == "--test":
-        print("Running in test mode...")
+        agent.console.print("Running in test mode...")
         # Simulate multiple commands for testing
         test_commands = """
         ls -la
@@ -361,10 +410,10 @@ def main():
         output = agent.execute_command(test_commands)
         sys.exit(0)
     
-    print("Starting chat with Local Agent...")
-    print("Using", agent.shell_type, "shell")
-    print("Model:", agent.model)
-    print('Type \'exit\' to end the chat, \'help\' for commands\n')
+    agent.console.print("Starting chat with Local Agent...")
+    agent.console.print(f"Using {agent.shell_type} shell")
+    agent.console.print(f"Model: {agent.model}")
+    agent.console.print('Type \'exit\' to end the chat, \'help\' for commands\n')
     
     agent.start_chat()
 

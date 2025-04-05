@@ -45,7 +45,9 @@ If you prefer to set things up manually:
 3. Install Python dependencies:
    ```bash
    python -m venv venv
-   source venv/bin/activate
+   source venv/bin/activate.fish  # For fish shell
+   # OR
+   source venv/bin/activate  # For bash/zsh
    pip install -r requirements.txt
    ```
 
@@ -58,7 +60,9 @@ If you prefer to set things up manually:
 
 1. Activate the virtual environment:
    ```bash
-   source venv/bin/activate
+   source venv/bin/activate.fish  # For fish shell
+   # OR
+   source venv/bin/activate  # For bash/zsh
    ```
 
 2. Start the agent:
@@ -90,4 +94,5 @@ If you prefer to set things up manually:
 - The default model is set to "llama2". You can change this in the `local_agent.py` file.
 - All commands require user confirmation before execution.
 - The Ollama container runs on port 11434.
-- If you're added to the docker group, you'll need to log out and back in for the changes to take effect. 
+- If you're added to the docker group, you'll need to log out and back in for the changes to take effect.
+- If you're using fish shell, make sure to use `source venv/bin/activate.fish` instead of the standard activation command. 
