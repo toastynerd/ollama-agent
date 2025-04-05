@@ -1,5 +1,7 @@
 # Local Agent
 
+[![Tests](https://github.com/toastynerd/ollama-agent/actions/workflows/tests.yml/badge.svg)](https://github.com/toastynerd/ollama-agent/actions/workflows/tests.yml)
+
 A command-line interface agent that can interact with Ollama and execute Linux commands with confirmation.
 
 ## System Requirements
